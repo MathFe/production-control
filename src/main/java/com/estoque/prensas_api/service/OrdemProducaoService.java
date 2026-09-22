@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 @Service
 public class OrdemProducaoService {
 
@@ -37,9 +39,8 @@ public class OrdemProducaoService {
         this.estoqueProduzidoRepository = estoqueProduzidoRepository;
     }
 
-
     @Transactional
-    public OrdemProducaoResponseDTO create (OrdemProducaoCreateDTO dto) {
+    public OrdemProducaoResponseDTO create(OrdemProducaoCreateDTO dto) {
         CaixaChapa caixaChapa = caixaChapaRepository.findById(dto.caixaChapaId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Caixa de chapa não encontrada: " + dto.caixaChapaId()));
         Usuario usuario = usuarioRepository.findById(dto.usuarioId())
@@ -48,6 +49,18 @@ public class OrdemProducaoService {
         OrdemProducao ordemProducao = ordemProducaoMapper.toEntity(dto, caixaChapa, usuario);
         ordemProducao.setStatus(StatusOrdemProducao.PLANEJADA);
         return ordemProducaoMapper.toResponseDTO(ordemProducaoRepository.save(ordemProducao));
+    }
+
+    @Transactional(readOnly = true)
+    public OrdemProducaoResponseDTO findById(Long id) {
+        return ordemProducaoMapper.toResponseDTO(getOrThrow(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrdemProducaoResponseDTO> findAll() {
+        return ordemProducaoRepository.findAll().stream()
+                .map(ordemProducaoMapper::toResponseDTO)
+                .toList();
     }
 
     @Transactional
