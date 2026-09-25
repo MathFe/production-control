@@ -109,12 +109,21 @@ class OrdemProducaoServiceTest {
 
     @Test
     void alterarStatusAvancaParaEmProcessamento() {
-        OrdemProducao ordem = ordem(StatusOrdemProducao.PLANEJADA, caixa(StatusCaixaChapa.EM_PRODUCAO, 100), null);
+        OrdemProducao ordem = ordem(StatusOrdemProducao.PLANEJADA, caixa(StatusCaixaChapa.EM_PRODUCAO, 100), estoque(10, 20));
         when(ordemProducaoRepository.findById(1L)).thenReturn(Optional.of(ordem));
 
         OrdemProducaoResponseDTO resposta = service.alterarStatus(1L, StatusOrdemProducao.EM_PROCESSAMENTO);
 
         assertThat(resposta.status()).isEqualTo(StatusOrdemProducao.EM_PROCESSAMENTO);
+    }
+
+    @Test
+    void iniciarFalhaSemEstoqueVinculado() {
+        OrdemProducao ordem = ordem(StatusOrdemProducao.PLANEJADA, caixa(StatusCaixaChapa.EM_PRODUCAO, 100), null);
+        when(ordemProducaoRepository.findById(1L)).thenReturn(Optional.of(ordem));
+
+        assertStatus(() -> service.alterarStatus(1L, StatusOrdemProducao.EM_PROCESSAMENTO), HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(ordem.getStatus()).isEqualTo(StatusOrdemProducao.PLANEJADA);
     }
 
     @Test

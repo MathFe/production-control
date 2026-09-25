@@ -100,6 +100,10 @@ public class OrdemProducaoService {
                     "Transição inválida: " + ordemProducao.getStatus() + " -> " + novoStatus);
         }
 
+        if (novoStatus == StatusOrdemProducao.EM_PROCESSAMENTO) {
+            // Depois de PLANEJADA a ordem não pode mais ser editada, então o destino precisa estar definido aqui
+            exigirEstoqueVinculado(ordemProducao, "iniciada");
+        }
         if (novoStatus == StatusOrdemProducao.CONCLUIDA) {
             concluir(ordemProducao);
         }
@@ -118,14 +122,17 @@ public class OrdemProducaoService {
     }
 
     private void concluir(OrdemProducao ordemProducao) {
-        EstoqueProduzido estoqueProduzido = ordemProducao.getEstoqueProduzido();
-        if (estoqueProduzido == null) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Ordem de Produção " + ordemProducao.getId() + " não tem estoque produzido vinculado");
-        }
+        exigirEstoqueVinculado(ordemProducao, "concluída");
 
-        estoqueProduzido.adicionarQuantidade(ordemProducao.getQuantidadeAProcessar());
+        ordemProducao.getEstoqueProduzido().adicionarQuantidade(ordemProducao.getQuantidadeAProcessar());
         ordemProducao.getCaixaChapa().setStatus(StatusCaixaChapa.FINALIZADA);
+    }
+
+    private void exigirEstoqueVinculado(OrdemProducao ordemProducao, String acao) {
+        if (ordemProducao.getEstoqueProduzido() == null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Ordem de Produção " + ordemProducao.getId() + " não pode ser " + acao + " sem estoque produzido vinculado");
+        }
     }
 
     private void exigirPlanejada(OrdemProducao ordemProducao, String acao) {
