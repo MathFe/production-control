@@ -7,6 +7,7 @@ import com.estoque.prensas_api.mapper.OrdemProducaoMapper;
 import com.estoque.prensas_api.model.CaixaChapa;
 import com.estoque.prensas_api.model.EstoqueProduzido;
 import com.estoque.prensas_api.model.OrdemProducao;
+import com.estoque.prensas_api.model.StatusCaixaChapa;
 import com.estoque.prensas_api.model.StatusOrdemProducao;
 import com.estoque.prensas_api.model.Usuario;
 import com.estoque.prensas_api.repository.CaixaChapaRepository;
@@ -46,8 +47,15 @@ public class OrdemProducaoService {
         Usuario usuario = usuarioRepository.findById(dto.usuarioId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado: " + dto.usuarioId()));
 
+        if (caixaChapa.getStatus() != StatusCaixaChapa.DISPONIVEL) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Caixa de chapa " + caixaChapa.getId() + " não está disponível (status: " + caixaChapa.getStatus() + ")");
+        }
+        validarQuantidade(dto.quantidadeAProcessar(), caixaChapa);
+
         OrdemProducao ordemProducao = ordemProducaoMapper.toEntity(dto, caixaChapa, usuario);
         ordemProducao.setStatus(StatusOrdemProducao.PLANEJADA);
+        caixaChapa.setStatus(StatusCaixaChapa.EM_PRODUCAO);
         return ordemProducaoMapper.toResponseDTO(ordemProducaoRepository.save(ordemProducao));
     }
 
@@ -66,9 +74,11 @@ public class OrdemProducaoService {
     @Transactional
     public OrdemProducaoResponseDTO update(Long id, OrdemProducaoUpdateDTO dto) {
         OrdemProducao ordemProducao = getOrThrow(id);
+        exigirPlanejada(ordemProducao, "editada");
+        validarQuantidade(dto.quantidadeAProcessar(), ordemProducao.getCaixaChapa());
+
         ordemProducao.setIdPrensa(dto.idPrensa());
         ordemProducao.setQuantidadeAProcessar(dto.quantidadeAProcessar());
-        ordemProducao.setStatus(dto.status());
 
         if (dto.estoqueProduzidoId() != null) {
             EstoqueProduzido estoqueProduzido = estoqueProduzidoRepository.findById(dto.estoqueProduzidoId())
@@ -82,11 +92,54 @@ public class OrdemProducaoService {
     }
 
     @Transactional
-    public void delete(Long id) {
-        if (!ordemProducaoRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ordem de Produção " + id + " não encontrada");
+    public OrdemProducaoResponseDTO alterarStatus(Long id, StatusOrdemProducao novoStatus) {
+        OrdemProducao ordemProducao = getOrThrow(id);
+
+        if (!ordemProducao.getStatus().podeIrPara(novoStatus)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Transição inválida: " + ordemProducao.getStatus() + " -> " + novoStatus);
         }
-        ordemProducaoRepository.deleteById(id);
+
+        if (novoStatus == StatusOrdemProducao.CONCLUIDA) {
+            concluir(ordemProducao);
+        }
+
+        ordemProducao.setStatus(novoStatus);
+        return ordemProducaoMapper.toResponseDTO(ordemProducao);
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        OrdemProducao ordemProducao = getOrThrow(id);
+        exigirPlanejada(ordemProducao, "excluída");
+
+        ordemProducao.getCaixaChapa().setStatus(StatusCaixaChapa.DISPONIVEL);
+        ordemProducaoRepository.delete(ordemProducao);
+    }
+
+    private void concluir(OrdemProducao ordemProducao) {
+        EstoqueProduzido estoqueProduzido = ordemProducao.getEstoqueProduzido();
+        if (estoqueProduzido == null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Ordem de Produção " + ordemProducao.getId() + " não tem estoque produzido vinculado");
+        }
+
+        estoqueProduzido.adicionarQuantidade(ordemProducao.getQuantidadeAProcessar());
+        ordemProducao.getCaixaChapa().setStatus(StatusCaixaChapa.FINALIZADA);
+    }
+
+    private void exigirPlanejada(OrdemProducao ordemProducao, String acao) {
+        if (ordemProducao.getStatus() != StatusOrdemProducao.PLANEJADA) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ordem de Produção " + ordemProducao.getId() + " não pode ser " + acao + " (status: " + ordemProducao.getStatus() + ")");
+        }
+    }
+
+    private void validarQuantidade(Integer quantidadeAProcessar, CaixaChapa caixaChapa) {
+        if (quantidadeAProcessar > caixaChapa.getQuantidade()) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Quantidade a processar (" + quantidadeAProcessar + ") maior que a quantidade da caixa (" + caixaChapa.getQuantidade() + ")");
+        }
     }
 
     private OrdemProducao getOrThrow(Long id) {

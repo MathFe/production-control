@@ -2,6 +2,7 @@ package com.estoque.prensas_api.controller;
 
 import com.estoque.prensas_api.dto.OrdemProducaoCreateDTO;
 import com.estoque.prensas_api.dto.OrdemProducaoResponseDTO;
+import com.estoque.prensas_api.dto.OrdemProducaoStatusDTO;
 import com.estoque.prensas_api.dto.OrdemProducaoUpdateDTO;
 import com.estoque.prensas_api.service.OrdemProducaoService;
 import jakarta.validation.Valid;
@@ -9,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -46,6 +48,11 @@ public class OrdemProducaoController {
     @PutMapping("/{id}")
     public OrdemProducaoResponseDTO update(@PathVariable Long id, @Valid @RequestBody OrdemProducaoUpdateDTO dto) {
         return ordemProducaoService.update(id, dto);
+    }
+
+    @PatchMapping("/{id}/status")
+    public OrdemProducaoResponseDTO alterarStatus(@PathVariable Long id, @Valid @RequestBody OrdemProducaoStatusDTO dto) {
+        return ordemProducaoService.alterarStatus(id, dto.status());
     }
 
     @DeleteMapping("/{id}")
