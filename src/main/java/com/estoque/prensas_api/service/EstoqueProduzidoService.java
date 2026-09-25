@@ -5,7 +5,6 @@ import com.estoque.prensas_api.dto.EstoqueProduzidoResponseDTO;
 import com.estoque.prensas_api.dto.EstoqueProduzidoUpdateDTO;
 import com.estoque.prensas_api.mapper.EstoqueProduzidoMapper;
 import com.estoque.prensas_api.model.EstoqueProduzido;
-import com.estoque.prensas_api.model.NivelEstoque;
 import com.estoque.prensas_api.repository.EstoqueProduzidoRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -28,7 +27,7 @@ public class EstoqueProduzidoService {
     @Transactional
     public EstoqueProduzidoResponseDTO create(EstoqueProduzidoCreateDTO dto) {
         EstoqueProduzido estoqueProduzido = estoqueProduzidoMapper.toEntity(dto);
-        estoqueProduzido.setNivelEstoque(calcularNivelEstoque(dto.quantidade(), dto.quantidadeMinima()));
+        estoqueProduzido.recalcularNivel();
         return estoqueProduzidoMapper.toResponseDTO(estoqueProduzidoRepository.save(estoqueProduzido));
     }
 
@@ -50,7 +49,7 @@ public class EstoqueProduzidoService {
         estoqueProduzido.setNomePeca(dto.nomePeca());
         estoqueProduzido.setQuantidade(dto.quantidade());
         estoqueProduzido.setQuantidadeMinima(dto.quantidadeMinima());
-        estoqueProduzido.setNivelEstoque(calcularNivelEstoque(dto.quantidade(), dto.quantidadeMinima()));
+        estoqueProduzido.recalcularNivel();
         return estoqueProduzidoMapper.toResponseDTO(estoqueProduzidoRepository.save(estoqueProduzido));
     }
 
@@ -65,15 +64,5 @@ public class EstoqueProduzidoService {
     private EstoqueProduzido getOrThrow(Long id) {
         return estoqueProduzidoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Estoque produzido não encontrado: " + id));
-    }
-
-    private NivelEstoque calcularNivelEstoque(Integer quantidade, Integer quantidadeMinima) {
-        if (quantidade <= quantidadeMinima) {
-            return NivelEstoque.CRITICA;
-        }
-        if (quantidade <= quantidadeMinima * 2) {
-            return NivelEstoque.MEDIA;
-        }
-        return NivelEstoque.ALTA;
     }
 }

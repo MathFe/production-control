@@ -42,4 +42,19 @@ public class EstoqueProduzido {
     @CreationTimestamp
     @Column(name = "data_chegada", nullable = false, updatable = false)
     private LocalDateTime dataChegada;
+
+    public void adicionarQuantidade(int quantidadeAdicional) {
+        this.quantidade += quantidadeAdicional;
+        recalcularNivel();
+    }
+
+    public void recalcularNivel() {
+        if (quantidade <= quantidadeMinima) {
+            this.nivelEstoque = NivelEstoque.CRITICA;
+        } else if (quantidade <= quantidadeMinima * 2) {
+            this.nivelEstoque = NivelEstoque.MEDIA;
+        } else {
+            this.nivelEstoque = NivelEstoque.ALTA;
+        }
+    }
 }
